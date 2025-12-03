@@ -102,7 +102,7 @@
     <Style x:Key="SocialButton" TargetType="Button">
         <Setter Property="Background" Value="#1F012F"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="BorderBrush" Value="#6A1B9A"/>
+        <Setter Property="BorderBrush" Value="#A946FF"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Padding" Value="8"/>
         <Setter Property="Template">
@@ -121,11 +121,11 @@
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="#2D0240"/>
-                <Setter Property="BorderBrush" Value="#8E4FD1"/>
+                <Setter Property="BorderBrush" Value="#C26CFF"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="Background" Value="#1A0128"/>
-                <Setter Property="BorderBrush" Value="#BB4CFF"/>
+                <Setter Property="BorderBrush" Value="#A946FF"/>
             </Trigger>
         </Style.Triggers>
     </Style>

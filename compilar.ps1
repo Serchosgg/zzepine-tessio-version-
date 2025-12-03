@@ -21,7 +21,7 @@ Write-Host ""
 
 # Limpiar compilaciones anteriores
 Write-Host "[2/5] Limpiando compilaciones anteriores..." -ForegroundColor Yellow
-dotnet clean --verbosity quiet
+dotnet clean "GTAV-Injector.csproj" --verbosity quiet
 if ($LASTEXITCODE -eq 0) {
     Write-Host "OK Limpieza completada" -ForegroundColor Green
 }
@@ -33,7 +33,7 @@ Write-Host ""
 
 # Restaurar dependencias
 Write-Host "[3/5] Restaurando dependencias NuGet..." -ForegroundColor Yellow
-dotnet restore
+dotnet restore "GTAV-Injector.csproj"
 if ($LASTEXITCODE -eq 0) {
     Write-Host "OK Dependencias restauradas" -ForegroundColor Green
 }
@@ -46,7 +46,7 @@ Write-Host ""
 
 # Compilar en modo Release
 Write-Host "[4/5] Compilando proyecto (Release)..." -ForegroundColor Yellow
-dotnet build -c Release --no-restore
+dotnet build "GTAV-Injector.csproj" -c Release --no-restore
 if ($LASTEXITCODE -eq 0) {
     Write-Host "OK Compilacion exitosa" -ForegroundColor Green
 }
@@ -63,7 +63,7 @@ $response = Read-Host
 if ($response -eq "S" -or $response -eq "s") {
     Write-Host "Creando ejecutable portable..." -ForegroundColor Yellow
     
-    $publishArgs = @("publish", "-c", "Release", "-r", "win-x64", "--self-contained", "true", "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true")
+    $publishArgs = @("publish", "GTAV-Injector.csproj", "-c", "Release", "-r", "win-x64", "--self-contained", "true", "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true")
     & dotnet $publishArgs
     
     if ($LASTEXITCODE -eq 0) {

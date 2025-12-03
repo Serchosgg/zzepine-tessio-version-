@@ -17,8 +17,10 @@
     <Product>GTAV Injector Enhanced</Product>
     <Description>Advanced GTA V DLL Injector with auto-injection and version control</Description>
 	<PublishSingleFile>true</PublishSingleFile>
-	<SelfContained>false</SelfContained>
+	<SelfContained>true</SelfContained>
 	<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+	<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+	<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>

@@ -11,7 +11,7 @@
         Background="Transparent"
         AllowsTransparency="True"
         WindowStyle="None"
-        ResizeMode="CanMinimize">
+        ResizeMode="NoResize">
     
     <Window.Resources>
         <!-- Animación de parallax -->
@@ -67,7 +67,7 @@
                 </Grid.RowDefinitions>
                 
                 <!-- Barra de título personalizada -->
-                <Border Grid.Row="0" Background="#1A0128" CornerRadius="10,10,0,0" Margin="0">
+                <Border Grid.Row="0" Background="#1A0128" CornerRadius="12,12,0,0" Margin="0">
                     <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                         <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -86,13 +86,24 @@
                     </StackPanel>
                     
                     <!-- Selector de idioma -->
-                    <ComboBox x:Name="LanguageSelector" Grid.Column="1" 
-                              Width="140" Height="32" HorizontalAlignment="Right" Margin="0,0,20,0"
-                              Style="{StaticResource {x:Type ComboBox}}"
-                              SelectionChanged="LanguageSelector_SelectionChanged">
-                        <ComboBoxItem Content="🇺🇸 English" Tag="en"/>
-                        <ComboBoxItem Content="🇪🇸 Español" Tag="es" IsSelected="True"/>
-                    </ComboBox>
+                    <Border Grid.Column="1" Margin="0,0,20,0" HorizontalAlignment="Right"
+                            Background="#2A0B3A" CornerRadius="20" Padding="12,6">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                       Foreground="#FF9EFF" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <StackPanel>
+                                <TextBlock Text="Idioma" FontSize="11" Foreground="#D3B4FF"/>
+                                <ComboBox x:Name="LanguageSelector" Width="160" Height="30"
+                                          Background="#3B0F4D" Foreground="#FFFFFF" BorderBrush="#FF9EFF"
+                                          Padding="4,0" FontWeight="SemiBold" BorderThickness="1"
+                                          FocusVisualStyle="{x:Null}"
+                                          SelectionChanged="LanguageSelector_SelectionChanged">
+                                    <ComboBoxItem Content="🇺🇸 English" Tag="en"/>
+                                    <ComboBoxItem Content="🇪🇸 Español" Tag="es" IsSelected="True"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                     
                     <!-- Botones de ventana -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -218,7 +229,7 @@
                                             Foreground="#FFFFFF" Margin="0,5" GroupName="GameType" 
                                             IsChecked="True" Checked="GameType_Changed"/>
                                 
-                                <Separator Margin="0,15" Background="#6A1B9A"/>
+                                <Separator Margin="0,15" Background="#A946FF"/>
                                 
                                 <!-- Launcher -->
                                 <TextBlock x:Name="LauncherTitle" Text="Launcher" FontWeight="Bold" 
@@ -289,7 +300,7 @@
                 </Grid>
                 
                 <!-- Barra de estado -->
-                <Border Grid.Row="2" Background="#15011E" CornerRadius="0,0,10,10" Padding="12,6" Margin="0">
+                <Border Grid.Row="2" Background="#15011E" CornerRadius="0,0,12,12" Padding="12,6" Margin="0">
                     <Grid>
                         <TextBlock x:Name="StatusText" Text="Ready" Foreground="#FF9EFF" 
                                   VerticalAlignment="Center"/>

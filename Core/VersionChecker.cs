@@ -9,7 +9,7 @@ namespace GTAVInjector.Core
     public static class VersionChecker
     {
         // URL del repositorio de GitHub para verificación de versiones
-        private const string VERSION_JSON_URL = "https://github.com/Tessio/Translations/blob/master/version_l.txt";
+        private const string VERSION_JSON_URL = "https://raw.githubusercontent.com/Tessio/Translations/master/version_l.txt";
         private const string TESSIO_DISCORD_URL = "https://gtaggs.wirdland.xyz/discord";
         
         private static string? _currentVersion;
