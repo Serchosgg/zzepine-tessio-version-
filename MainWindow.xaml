@@ -19,14 +19,14 @@
             <!-- Movimiento suave de la imagen principal -->
             <DoubleAnimation Storyboard.TargetName="BackgroundTranslate"
                            Storyboard.TargetProperty="X"
-                           From="-50" To="50" Duration="0:0:45" AutoReverse="True">
+                           From="-30" To="30" Duration="0:0:12" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="BackgroundTranslate"
                            Storyboard.TargetProperty="Y"
-                           From="-25" To="25" Duration="0:0:35" AutoReverse="True">
+                           From="-20" To="20" Duration="0:0:15" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
@@ -35,14 +35,14 @@
             <!-- Zoom sutil -->
             <DoubleAnimation Storyboard.TargetName="BackgroundScale"
                            Storyboard.TargetProperty="ScaleX"
-                           From="1.0" To="1.1" Duration="0:1:30" AutoReverse="True">
+                           From="1.0" To="1.08" Duration="0:0:20" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="BackgroundScale"
                            Storyboard.TargetProperty="ScaleY"
-                           From="1.0" To="1.1" Duration="0:1:30" AutoReverse="True">
+                           From="1.0" To="1.08" Duration="0:0:20" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
@@ -51,14 +51,14 @@
             <!-- Animación de partículas layer 1 -->
             <DoubleAnimation Storyboard.TargetName="ParallaxLayer1"
                            Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                           From="0" To="-150" Duration="0:0:40" AutoReverse="True">
+                           From="0" To="-100" Duration="0:0:18" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="ParallaxLayer1"
                            Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                           From="0" To="-75" Duration="0:0:50" AutoReverse="True">
+                           From="0" To="-60" Duration="0:0:22" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
@@ -67,14 +67,14 @@
             <!-- Animación de partículas layer 2 -->
             <DoubleAnimation Storyboard.TargetName="ParallaxLayer2"
                            Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                           From="0" To="-200" Duration="0:0:30" AutoReverse="True">
+                           From="0" To="-120" Duration="0:0:14" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="ParallaxLayer2"
                            Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                           From="0" To="50" Duration="0:1:00" AutoReverse="True">
+                           From="0" To="40" Duration="0:0:25" AutoReverse="True">
                 <DoubleAnimation.EasingFunction>
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
@@ -92,13 +92,16 @@
         <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <!-- Fondo dinámico con imagen GTA V y parallax -->
             <Canvas ClipToBounds="True" x:Name="DynamicBackgroundCanvas" MouseMove="Canvas_MouseMove">
-                <!-- Imagen de fondo base -->
+                <!-- Imagen de fondo base con efecto blur -->
                 <Image x:Name="BackgroundImage" 
                        Source="Resources/wallpaper_gta_v.png"
                        Canvas.Left="0" Canvas.Top="0"
                        Width="1200" Height="800"
                        Stretch="UniformToFill"
                        Opacity="0.85">
+                    <Image.Effect>
+                        <BlurEffect x:Name="BackgroundBlur" Radius="0.5"/>
+                    </Image.Effect>
                     <Image.RenderTransform>
                         <TransformGroup x:Name="BackgroundTransform">
                             <TranslateTransform x:Name="BackgroundTranslate"/>
@@ -480,7 +483,7 @@
                                         <Button x:Name="UpdateButton" Content="Update Available" 
                                                Style="{StaticResource WarningButton}" 
                                                Visibility="Collapsed" Click="Update_Click"/>
-                                        <Button x:Name="ChangelogButton" Content="View Changelog" Width="100" Height="25"
+                                        <Button x:Name="ChangelogButton" Content="View Changelog" Width="120" Height="33"
                                                Style="{StaticResource PrimaryButton}" FontSize="10"
                                                Visibility="Collapsed" Click="Changelog_Click" Margin="0,5,0,0"/>
                                     </StackPanel>
@@ -561,9 +564,9 @@
                                           Foreground="#FFD9FF" Margin="0,0,0,5"/>
                                 <Border Background="#15011E" CornerRadius="8" Padding="12">
                                     <StackPanel>
-                                        <TextBlock x:Name="Author1Text" Text="• [Nombre del Autor 1]" Foreground="#D3B4FF" FontSize="11" Margin="0,2"/>
-                                        <TextBlock x:Name="Author2Text" Text="• [Nombre del Autor 2]" Foreground="#D3B4FF" FontSize="11" Margin="0,2"/>
-                                        <TextBlock x:Name="Author3Text" Text="• [Nombre del Autor 3]" Foreground="#D3B4FF" FontSize="11" Margin="0,2"/>
+                                        <TextBlock x:Name="Author1Text" Text="• TessioGG" Foreground="#D3B4FF" FontSize="11" Margin="0,2"/>
+                                        <TextBlock x:Name="Author2Text" Text="• El SerchoGG" Foreground="#D3B4FF" FontSize="11" Margin="0,2"/>
+                                        <TextBlock x:Name="Author3Text" Text="• Rei Astora" Foreground="#D3B4FF" FontSize="11" Margin="0,2"/>
                                     </StackPanel>
                                 </Border>
 

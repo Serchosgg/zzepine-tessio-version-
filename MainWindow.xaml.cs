@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using GTAVInjector.Core;
 using GTAVInjector.Models;
 using Microsoft.Win32;
@@ -847,7 +848,7 @@ namespace GTAVInjector
             }
         }
 
-        // Evento para efecto de parallax interactivo con el mouse
+        // Evento para efecto de parallax interactivo con el mouse - Mejorado
         private void Canvas_MouseMove(object sender, MouseEventArgs e)
         {
             try
@@ -859,27 +860,40 @@ namespace GTAVInjector
                     var centerX = canvas.ActualWidth / 2;
                     var centerY = canvas.ActualHeight / 2;
 
-                    // Calcular offset basado en la posición del mouse (más sutil)
-                    var offsetX = (position.X - centerX) / centerX * 5; // Reducido para ser más sutil
-                    var offsetY = (position.Y - centerY) / centerY * 3;
+                    // Calcular offset con sensibilidad extrema y muy dinámica
+                    var offsetX = (position.X - centerX) / centerX * 60; // Súper dinámico
+                    var offsetY = (position.Y - centerY) / centerY * 45; // Extremadamente notorio
 
-                    // Aplicar efecto parallax suave a la imagen de fondo
-                    BackgroundTranslate.X = offsetX;
-                    BackgroundTranslate.Y = offsetY;
+                    // Aplicar transformaciones súper rápidas para máxima responsividad
+                    var duration = TimeSpan.FromMilliseconds(50); // Súper rápido y dinámico
 
-                    // Aplicar efecto a las capas de partículas con diferentes velocidades
+                    // Animar la imagen de fondo principal con efectos adicionales
+                    AnimateTransform(BackgroundTranslate, "X", offsetX, duration);
+                    AnimateTransform(BackgroundTranslate, "Y", offsetY, duration);
+                    
+                    // Efectos súper dinámicos y extremos
+                    var scaleIntensity = Math.Abs(offsetX) + Math.Abs(offsetY);
+                    var scaleValue = 1.0 + (scaleIntensity / 500); // Escala más dramática y dinámica
+                    AnimateScale(BackgroundScale, scaleValue, duration);
+                    
+                    // Efecto de blur súper dinámico - cambios extremos
+                    var blurIntensity = (scaleIntensity / 10); // Intensidad del blur más sensible
+                    var blurValue = Math.Min(0.5 + blurIntensity, 8.0); // Blur extremo entre 0.5 y 8.0
+                    AnimateBlur(BackgroundBlur, blurValue, duration);
+
+                    // Aplicar efectos extremos a las capas de partículas
                     var layer1Transform = ParallaxLayer1?.RenderTransform as TranslateTransform;
                     if (layer1Transform != null)
                     {
-                        layer1Transform.X = offsetX * 0.3;
-                        layer1Transform.Y = offsetY * 0.2;
+                        AnimateTransform(layer1Transform, "X", offsetX * 1.5, duration); // Súper dinámico
+                        AnimateTransform(layer1Transform, "Y", offsetY * 1.2, duration); // Muy extremo
                     }
 
                     var layer2Transform = ParallaxLayer2?.RenderTransform as TranslateTransform;
                     if (layer2Transform != null)
                     {
-                        layer2Transform.X = offsetX * 0.5;
-                        layer2Transform.Y = offsetY * 0.4;
+                        AnimateTransform(layer2Transform, "X", offsetX * 2.0, duration); // Extremadamente dinámico
+                        AnimateTransform(layer2Transform, "Y", offsetY * 1.8, duration); // Súper intenso
                     }
                 }
             }
@@ -887,6 +901,77 @@ namespace GTAVInjector
             {
                 // Manejo silencioso de errores
                 System.Diagnostics.Debug.WriteLine($"Error en Canvas_MouseMove: {ex.Message}");
+            }
+        }
+
+        // Método auxiliar para animar transformaciones suavemente
+        private void AnimateTransform(TranslateTransform transform, string property, double toValue, TimeSpan duration)
+        {
+            try
+            {
+                var animation = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    To = toValue,
+                    Duration = duration,
+                    EasingFunction = new System.Windows.Media.Animation.QuadraticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+                };
+
+                if (property == "X")
+                    transform.BeginAnimation(TranslateTransform.XProperty, animation);
+                else if (property == "Y")
+                    transform.BeginAnimation(TranslateTransform.YProperty, animation);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en AnimateTransform: {ex.Message}");
+            }
+        }
+
+        // Método auxiliar para animar escala
+        private void AnimateScale(ScaleTransform scaleTransform, double scaleValue, TimeSpan duration)
+        {
+            try
+            {
+                var animationX = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    To = scaleValue,
+                    Duration = duration,
+                    EasingFunction = new System.Windows.Media.Animation.QuadraticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+                };
+                
+                var animationY = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    To = scaleValue,
+                    Duration = duration,
+                    EasingFunction = new System.Windows.Media.Animation.QuadraticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+                };
+
+                scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, animationX);
+                scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, animationY);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en AnimateScale: {ex.Message}");
+            }
+        }
+
+        // Método auxiliar para animar blur dinámico
+        private void AnimateBlur(BlurEffect blurEffect, double blurValue, TimeSpan duration)
+        {
+            try
+            {
+                var blurAnimation = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    To = blurValue,
+                    Duration = duration,
+                    EasingFunction = new System.Windows.Media.Animation.QuadraticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+                };
+
+                blurEffect.BeginAnimation(BlurEffect.RadiusProperty, blurAnimation);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en AnimateBlur: {ex.Message}");
             }
         }
 
