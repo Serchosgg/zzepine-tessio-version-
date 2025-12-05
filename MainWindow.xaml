@@ -281,7 +281,7 @@
                                         </Style>
                                     </ComboBox.ItemContainerStyle>
                                     <ComboBoxItem Content="🇺🇸 English" Tag="en"/>
-                                    <ComboBoxItem Content="🇪🇸 Español" Tag="es" IsSelected="True"/>
+                                    <ComboBoxItem Content="🇪🇸 Español" Tag="es"/>
                                 </ComboBox>
                             </StackPanel>
                         </StackPanel>
@@ -438,7 +438,7 @@
                                             Checked="GameType_Changed"/>
                                 <RadioButton x:Name="EnhancedRadio" Content="Enhanced (GTA5_Enhanced.exe)" 
                                             Foreground="#FFFFFF" Margin="0,5" GroupName="GameType" 
-                                            IsChecked="True" Checked="GameType_Changed"/>
+                                            Checked="GameType_Changed"/>
                                 
                                 <Separator Margin="0,15" Background="#A946FF"/>
                                 
@@ -447,7 +447,7 @@
                                           Foreground="#FFD9FF" Margin="0,0,0,5"/>
                                 <RadioButton x:Name="RockstarRadio" Content="Rockstar Games" 
                                             Foreground="#FFFFFF" Margin="0,5" GroupName="Launcher" 
-                                            IsChecked="True" Checked="Launcher_Changed"/>
+                                            Checked="Launcher_Changed"/>
                                 <RadioButton x:Name="EpicRadio" Content="Epic Games" 
                                             Foreground="#FFFFFF" Margin="0,5" GroupName="Launcher" 
                                             Checked="Launcher_Changed"/>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using GTAVInjector.Models;
 
@@ -15,7 +16,10 @@ namespace GTAVInjector.Core
         
         private static readonly string SettingsPath = Path.Combine(SettingsDirectory, "config.conf");
 
-        public static AppSettings Settings { get; private set; } = new();
+        public static AppSettings Settings { get; private set; } = null!;
+        
+        // Copia de los settings cargados para detectar cambios
+        private static AppSettings? _loadedSettings = null;
 
         public static void LoadSettings()
         {
@@ -24,6 +28,8 @@ namespace GTAVInjector.Core
                 if (File.Exists(SettingsPath))
                 {
                     LoadFromConfigFile();
+                    // Crear copia de los settings cargados para detectar cambios
+                    _loadedSettings = CloneSettings(Settings);
                 }
                 else
                 {
@@ -37,13 +43,15 @@ namespace GTAVInjector.Core
                     if (File.Exists(oldJsonPath))
                     {
                         MigrateFromJson(oldJsonPath);
+                        // Solo guardar cuando se migra desde JSON antiguo
+                        SaveSettings(true); // Forzar guardado en migración
                     }
                     else
                     {
                         Settings = new AppSettings();
+                        // Solo crear el archivo si no existe (primera vez)
+                        SaveSettings(true); // Forzar guardado en primera creación
                     }
-                    
-                    SaveSettings();
                 }
             }
             catch (Exception ex)
@@ -131,7 +139,12 @@ namespace GTAVInjector.Core
             {
                 var dllNumber = ExtractDllNumber(key);
                 EnsureDllEntry(dllNumber);
-                Settings.DllEntries[dllNumber - 1].Path = value;
+                var dllEntry = Settings.DllEntries[dllNumber - 1];
+                dllEntry.Path = value;
+                // Establecer también el FileName desde el Path
+                dllEntry.FileName = Path.GetFileName(value);
+                // Establecer status por defecto
+                dllEntry.Status = "No inyectado"; // TODO: usar LocalizationManager aquí si es necesario
             }
             else if (key.EndsWith("_Enabled"))
             {
@@ -172,8 +185,29 @@ namespace GTAVInjector.Core
 
         public static void SaveSettings()
         {
+            SaveSettings(false); // Por defecto, verificar cambios
+        }
+        
+        public static void SaveSettings(bool force = false)
+        {
             try
             {
+                // Debug: mostrar quién está llamando a SaveSettings
+                var stackTrace = new System.Diagnostics.StackTrace(true);
+                var callerMethod1 = stackTrace.GetFrame(1)?.GetMethod()?.Name ?? "Unknown";
+                var callerMethod2 = stackTrace.GetFrame(2)?.GetMethod()?.Name ?? "Unknown";
+                var callerMethod3 = stackTrace.GetFrame(3)?.GetMethod()?.Name ?? "Unknown";
+                System.Diagnostics.Debug.WriteLine($"[SAVE DEBUG] Stack: {callerMethod3} -> {callerMethod2} -> {callerMethod1}");
+                
+                // Si no es forzado y no hay cambios, no guardar
+                if (!force && !HasSettingsChanged())
+                {
+                    System.Diagnostics.Debug.WriteLine("No hay cambios en la configuración - saltando guardado");
+                    return;
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"[SAVE DEBUG] GUARDANDO - LauncherType: {Settings.LauncherType}, Language: {Settings.Language}");
+                
                 // Crear directorio si no existe
                 if (!Directory.Exists(SettingsDirectory))
                 {
@@ -183,6 +217,9 @@ namespace GTAVInjector.Core
                 // Crear contenido del archivo .conf
                 var configContent = CreateConfigContent();
                 File.WriteAllText(SettingsPath, configContent);
+                
+                // Actualizar la copia de configuración cargada
+                _loadedSettings = CloneSettings(Settings);
                 
                 System.Diagnostics.Debug.WriteLine($"Configuración guardada en: {SettingsPath}");
             }
@@ -225,6 +262,76 @@ namespace GTAVInjector.Core
             lines.Add($"LastModified={DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             
             return string.Join(Environment.NewLine, lines);
+        }
+        
+        private static AppSettings CloneSettings(AppSettings settings)
+        {
+            return new AppSettings
+            {
+                GameType = settings.GameType,
+                LauncherType = settings.LauncherType,
+                AutoInject = settings.AutoInject,
+                Language = settings.Language,
+                Version = settings.Version,
+                DllEntries = settings.DllEntries.Select(dll => new DllEntry
+                {
+                    Path = dll.Path,
+                    FileName = dll.FileName,
+                    Enabled = dll.Enabled,
+                    Status = dll.Status
+                }).ToList()
+            };
+        }
+        
+        private static bool HasSettingsChanged()
+        {
+            if (_loadedSettings == null) 
+            {
+                System.Diagnostics.Debug.WriteLine($"[CHANGE DEBUG] No hay configuración previa - forzando guardado");
+                return true; // Si no hay configuración previa, hay cambios
+            }
+            
+            // Comparar propiedades principales
+            if (Settings.GameType != _loadedSettings.GameType)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CHANGE DEBUG] GameType: {_loadedSettings.GameType} -> {Settings.GameType}");
+                return true;
+            }
+            if (Settings.LauncherType != _loadedSettings.LauncherType)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CHANGE DEBUG] LauncherType: {_loadedSettings.LauncherType} -> {Settings.LauncherType}");
+                return true;
+            }
+            if (Settings.AutoInject != _loadedSettings.AutoInject)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CHANGE DEBUG] AutoInject: {_loadedSettings.AutoInject} -> {Settings.AutoInject}");
+                return true;
+            }
+            if (Settings.Language != _loadedSettings.Language)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CHANGE DEBUG] Language: {_loadedSettings.Language} -> {Settings.Language}");
+                return true;
+            }
+            
+            // Comparar DLL entries
+            if (Settings.DllEntries.Count != _loadedSettings.DllEntries.Count)
+            {
+                return true;
+            }
+            
+            for (int i = 0; i < Settings.DllEntries.Count; i++)
+            {
+                var current = Settings.DllEntries[i];
+                var loaded = _loadedSettings.DllEntries[i];
+                
+                if (current.Path != loaded.Path ||
+                    current.Enabled != loaded.Enabled)
+                {
+                    return true;
+                }
+            }
+            
+            return false; // No hay cambios
         }
     }
 }

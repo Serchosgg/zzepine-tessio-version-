@@ -17,6 +17,7 @@ namespace GTAVInjector
         private System.Windows.Threading.DispatcherTimer? _autoInjectTimer;
         private bool _gameWasRunning = false;
         private bool _autoInjectionCompleted = false;
+        private bool _isLoadingSettings = false; // Bandera para evitar guardado durante carga
 
         public MainWindow()
         {
@@ -37,12 +38,16 @@ namespace GTAVInjector
                 // Delay para asegurar que la UI esté completamente renderizada
                 this.Dispatcher.BeginInvoke(new Action(() => {
                     StartParallaxAnimation();
+                    // Desactivar bandera DESPUÉS de que todo esté completamente cargado
+                    _isLoadingSettings = false;
+                    System.Diagnostics.Debug.WriteLine("[LOADING] Bandera _isLoadingSettings desactivada - eventos habilitados");
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
             };
         }
 
         private void LoadSettings()
         {
+            _isLoadingSettings = true; // Activar bandera para evitar guardado
             var settings = SettingsManager.Settings;
             
             // Cargar tipo de juego
@@ -490,7 +495,8 @@ namespace GTAVInjector
                 }
                 
                 SettingsManager.Settings.DllEntries = DllEntries.ToList();
-                SettingsManager.SaveSettings();
+                if (!_isLoadingSettings) // Solo guardar si no estamos cargando
+                    SettingsManager.SaveSettings();
             }
         }
 
@@ -500,7 +506,8 @@ namespace GTAVInjector
             {
                 DllEntries.Remove(dll);
                 SettingsManager.Settings.DllEntries = DllEntries.ToList();
-                SettingsManager.SaveSettings();
+                if (!_isLoadingSettings) // Solo guardar si no estamos cargando
+                    SettingsManager.SaveSettings();
             }
         }
 
@@ -624,6 +631,8 @@ namespace GTAVInjector
 
         private void GameType_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isLoadingSettings) return; // No guardar durante la carga inicial
+            
             if (LegacyRadio.IsChecked == true)
                 SettingsManager.Settings.GameType = GameType.Legacy;
             else
@@ -634,6 +643,13 @@ namespace GTAVInjector
 
         private void Launcher_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isLoadingSettings) 
+            {
+                System.Diagnostics.Debug.WriteLine("[EVENT DEBUG] Launcher_Changed bloqueado por _isLoadingSettings");
+                return; // No guardar durante la carga inicial
+            }
+            System.Diagnostics.Debug.WriteLine("[EVENT DEBUG] Launcher_Changed ejecutándose - bandera desactivada");
+            
             if (RockstarRadio.IsChecked == true)
                 SettingsManager.Settings.LauncherType = LauncherType.Rockstar;
             else if (EpicRadio.IsChecked == true)
@@ -646,6 +662,8 @@ namespace GTAVInjector
 
         private void AutoInject_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isLoadingSettings) return; // No guardar durante la carga inicial
+            
             bool isEnabled = AutoInjectCheckbox.IsChecked == true;
             SettingsManager.Settings.AutoInject = isEnabled;
             SettingsManager.SaveSettings();
@@ -668,6 +686,8 @@ namespace GTAVInjector
 
         private void LanguageSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
+            if (_isLoadingSettings) return; // No guardar durante la carga inicial
+            
             if (LanguageSelector.SelectedItem is System.Windows.Controls.ComboBoxItem item)
             {
                 var lang = item.Tag?.ToString() ?? "en";
