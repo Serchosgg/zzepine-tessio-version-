@@ -114,7 +114,7 @@ namespace GTAVInjector.Core
                 {
                     // Ignorar errores de red silenciosamente
                 }
-            }, null, TimeSpan.Zero, TimeSpan.FromMinutes(5)); // Verificar cada 5 minutos
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(10)); // Verificar cada 10 segundos
         }
     }
 }
