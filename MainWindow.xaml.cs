@@ -4,47 +4,155 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
 using GTAVInjector.Core;
 using GTAVInjector.Models;
 using Microsoft.Win32;
+using System.Net.Http;
+using System.Windows.Threading;
 
 namespace GTAVInjector
 {
     public partial class MainWindow : Window
     {
+        private const string TESSIO_DISCORD_URL = "https://gtaggs.wirdland.xyz/discord";
+
         public ObservableCollection<DllEntry> DllEntries { get; set; }
         private System.Windows.Threading.DispatcherTimer? _gameCheckTimer;
         private System.Windows.Threading.DispatcherTimer? _autoInjectTimer;
+        private bool _gameWasRunning = false;
+        private bool _autoInjectionCompleted = false;
+        private bool _isLoadingSettings = false; // Bandera para evitar guardado durante carga
+
+        private readonly DispatcherTimer versionCheckTimer = new DispatcherTimer();
+        private string currentLocalVersion = "1.0.7"; // Aquí tu versión
 
         public MainWindow()
         {
             InitializeComponent();
+
+            // Timer cada 10 segundos
+            versionCheckTimer.Interval = TimeSpan.FromMinutes(5);
+            versionCheckTimer.Tick += VersionCheckTimer_Tick;
+            versionCheckTimer.Start();
+
+            // Revisión al iniciar también
+            _ = CheckVersionAsync();
+
+
+
             DllEntries = new ObservableCollection<DllEntry>();
             DllListView.ItemsSource = DllEntries;
-            
+
             LoadSettings();
             InitializeTimers();
-            CheckForUpdates();
-            StartVersionMonitoring();
-            
+
+
             // Mover la llamada a UpdateUI() al evento Loaded para asegurar que los controles estén inicializados
-            Loaded += (s, e) => 
+            Loaded += (s, e) =>
             {
                 UpdateUI();
-                UpdateVersionText();
+                // Delay para asegurar que la UI esté completamente renderizada
+                this.Dispatcher.BeginInvoke(new Action(() => {
+                    StartParallaxAnimation();
+                    // Desactivar bandera DESPUÉS de que todo esté completamente cargado
+                    _isLoadingSettings = false;
+                    System.Diagnostics.Debug.WriteLine("[LOADING] Bandera _isLoadingSettings desactivada - eventos habilitados");
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
             };
+        }
+
+        private async void VersionCheckTimer_Tick(object sender, EventArgs e)
+        {
+            await CheckVersionAsync();
+        }
+
+        private async Task CheckVersionAsync()
+        {
+            // 🟣 Mostrar mensaje mientras se consulta
+            Dispatcher.Invoke(() =>
+            {
+                VersionStatusText.Text = "COMPROBANDO VERSIÓN...";
+                VersionStatusText.Foreground = (Brush)Application.Current.Resources["LavenderBrush"]; // ← COLOR FIJO PARA ESTADO DE CARGA
+            });
+
+            // 🕒 2. Esperar 3 segundos (NO bloquea UI)
+            await Task.Delay(3000);
+
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    string remoteVersion = await client.GetStringAsync("https://raw.githubusercontent.com/Tessio/Translations/refs/heads/master/version_l.txt");
+                    remoteVersion = remoteVersion.Trim();
+
+                    // Si la versión cambió → actualiza UI
+                    if (remoteVersion != currentLocalVersion)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            VersionStatusText.Text = $"NUEVA VERSIÓN DISPONIBLE: {currentLocalVersion} > {remoteVersion}";
+                            VersionStatusText.Foreground = System.Windows.Media.Brushes.Red;
+
+                            // 🔥 Mostrar botón de actualizar
+                            UpdateButton.Visibility = Visibility.Visible;
+                            UpdateButton.Content = "Actualizar Ahora";
+                            UpdateButton.IsEnabled = true;
+
+                            // Ocultar changelog
+                            ChangelogButton.Visibility = Visibility.Collapsed;
+
+                            // Bloquear funciones
+                            LaunchButton.IsEnabled = false;
+                            InjectButton.IsEnabled = false;
+                            KillButton.IsEnabled = false;
+                        });
+                    }
+                    else
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            VersionStatusText.Text = $"ULTIMA VERSIÓN: {currentLocalVersion}";
+                            VersionStatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+
+                            UpdateButton.Visibility = Visibility.Collapsed;
+
+                            InjectButton.IsEnabled = true;
+                            KillButton.IsEnabled = true;
+                            if (!InjectionManager.IsGameRunning())
+                            {
+                                LaunchButton.IsEnabled = true;
+
+                            }
+
+                            // ✅ MOSTRAR EL BOTÓN DE CHANGELOG CUANDO ESTÁ ACTUALIZADO
+                            ChangelogButton.Visibility = Visibility.Visible;  // ← AQUÍ ESTABA FALTANDO
+                        });
+                    }
+                }
+            }
+            catch
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    VersionStatusText.Text = "ERROR AL COMPROBAR VERSIÓN";
+                });
+            }
         }
 
         private void LoadSettings()
         {
+            _isLoadingSettings = true; // Activar bandera para evitar guardado
             var settings = SettingsManager.Settings;
-            
+
             // Cargar tipo de juego
             if (settings.GameType == GameType.Legacy)
                 LegacyRadio.IsChecked = true;
             else
                 EnhancedRadio.IsChecked = true;
-            
+
             // Cargar launcher
             switch (settings.LauncherType)
             {
@@ -58,16 +166,24 @@ namespace GTAVInjector
                     SteamRadio.IsChecked = true;
                     break;
             }
-            
+
             // Cargar DLLs
             foreach (var dll in settings.DllEntries)
             {
                 DllEntries.Add(dll);
             }
-            
+
             // Cargar auto-inject
             AutoInjectCheckbox.IsChecked = settings.AutoInject;
-            
+
+            // Iniciar timer de auto-inject si está habilitado
+            if (settings.AutoInject)
+            {
+                System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] Habilitado en configuración - iniciando timer");
+                _autoInjectionCompleted = false; // Resetear estado al cargar
+                _autoInjectTimer?.Start();
+            }
+
             // Cargar idioma
             var langTag = settings.Language;
             foreach (System.Windows.Controls.ComboBoxItem item in LanguageSelector.Items)
@@ -89,122 +205,160 @@ namespace GTAVInjector
             };
             _gameCheckTimer.Tick += (s, e) => UpdateGameStatus();
             _gameCheckTimer.Start();
-            
+
             // Timer para auto-inyección
             _autoInjectTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(3)
+                Interval = TimeSpan.FromSeconds(2) // Reducir intervalo para mejor responsividad
             };
             _autoInjectTimer.Tick += AutoInjectTimer_Tick;
-        }
 
-        private async void CheckForUpdates()
-        {
-            try
+            // Iniciar timer si auto-inject ya está habilitado
+            if (SettingsManager.Settings.AutoInject)
             {
-                VersionStatusText.Text = LocalizationManager.GetString("CheckingUpdates");
-                var updateAvailable = await VersionChecker.CheckForUpdatesAsync();
-                
-                UpdateVersionStatus(updateAvailable);
+                _autoInjectTimer.Start();
+                System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] Timer iniciado en InitializeTimers");
             }
-            catch
-            {
-                VersionStatusText.Text = LocalizationManager.GetString("UpdateCheckFailed");
-                VersionStatusText.Foreground = System.Windows.Media.Brushes.Gray;
-            }
-        }
-
-        private void UpdateVersionText()
-        {
-            if (VersionText != null)
-            {
-                VersionText.Text = $"v{VersionChecker.GetCurrentVersion()}";
-            }
-        }
-
-        private void UpdateVersionStatus(bool isOutdated)
-        {
-            if (isOutdated)
-            {
-                VersionStatusText.Text = $"DESACTUALIZADO - v{VersionChecker.GetCurrentVersion()} → v{VersionChecker.GetLatestVersion()}";
-                VersionStatusText.Foreground = System.Windows.Media.Brushes.Red;
-                UpdateButton.Visibility = Visibility.Visible;
-                UpdateButton.Content = "Ir a Discord para Actualizar";
-                
-                // DESHABILITAR LOS 3 BOTONES PRINCIPALES
-                LaunchButton.IsEnabled = false;
-                InjectButton.IsEnabled = false;
-                KillButton.IsEnabled = false;
-            }
-            else
-            {
-                VersionStatusText.Text = $"ACTUALIZADO - v{VersionChecker.GetCurrentVersion()}";
-                VersionStatusText.Foreground = System.Windows.Media.Brushes.LimeGreen;
-                UpdateButton.Visibility = Visibility.Collapsed;
-                
-                // Rehabilitar botones según estado del juego
-                UpdateGameStatus();
-            }
-        }
-
-        private async void StartVersionMonitoring()
-        {
-            await VersionChecker.StartVersionMonitoring(isOutdated =>
-            {
-                Dispatcher.Invoke(() => UpdateVersionStatus(isOutdated));
-            });
         }
 
         private void UpdateGameStatus()
         {
             bool isRunning = InjectionManager.IsGameRunning();
-            bool isOutdated = VersionChecker.IsOutdated();
-            
+
+
             if (isRunning)
             {
                 GameStatusText.Text = LocalizationManager.GetString("GameRunning");
                 GameStatusText.Foreground = System.Windows.Media.Brushes.LimeGreen;
-                
+
                 // Solo habilitar botones si no está desactualizado
                 LaunchButton.IsEnabled = false;
-                InjectButton.IsEnabled = !isOutdated;
-                KillButton.IsEnabled = !isOutdated;
+
+
+                // Si el juego no estaba corriendo antes y ahora sí, resetear auto-inject
+                if (!_gameWasRunning)
+                {
+                    _autoInjectionCompleted = false;
+                    System.Diagnostics.Debug.WriteLine("Juego iniciado - Estado de auto-inyección reseteado para nueva sesión");
+                }
+
+                _gameWasRunning = true;
             }
             else
             {
+                KillButton.IsEnabled = false;
+
                 GameStatusText.Text = LocalizationManager.GetString("GameNotRunning");
                 GameStatusText.Foreground = System.Windows.Media.Brushes.Red;
-                
-                // Solo habilitar botones si no está desactualizado
-                LaunchButton.IsEnabled = !isOutdated;
-                InjectButton.IsEnabled = false;
-                KillButton.IsEnabled = false;
-                
-                // Resetear estados de inyección
-                foreach (var dll in DllEntries)
+
+                // Si el juego estaba ejecutándose antes y ahora no, resetear el estado
+                if (_gameWasRunning)
                 {
-                    dll.Status = LocalizationManager.GetString("NotInjected");
+                    _autoInjectionCompleted = false;
+                    _gameWasRunning = false;
+
+                    // Resetear estados de inyección
+                    foreach (var dll in DllEntries)
+                    {
+                        dll.Status = LocalizationManager.GetString("NotInjected");
+                    }
+
+                    // Resetear el texto de estado
+                    if (StatusText != null)
+                    {
+                        var currentLang = LocalizationManager.CurrentLanguage;
+                        StatusText.Text = currentLang.ToLower() == "es" ? "Listo" : "Ready";
+                        StatusText.Foreground = System.Windows.Media.Brushes.White;
+                    }
+
+                    System.Diagnostics.Debug.WriteLine("Juego cerrado - Estado de auto-inyección reseteado");
                 }
             }
         }
 
         private async void AutoInjectTimer_Tick(object? sender, EventArgs e)
         {
-            if (!SettingsManager.Settings.AutoInject)
-                return;
-            
-            if (!InjectionManager.IsGameRunning())
-                return;
-            
-            // Verificar si hay DLLs no inyectadas
-            var notInjected = DllEntries.Where(d => d.Enabled && 
-                d.Status == LocalizationManager.GetString("NotInjected")).ToList();
-            
-            if (notInjected.Any())
+            try
             {
-                StatusText.Text = LocalizationManager.GetString("AutoInjecting");
-                await Task.Delay(2000); // Esperar a que el juego cargue completamente
-                await InjectDllsAsync();
+                // Debug logging mejorado
+                bool gameRunning = InjectionManager.IsGameRunning();
+                bool autoInjectEnabled = SettingsManager.Settings.AutoInject;
+
+                System.Diagnostics.Debug.WriteLine($"[AUTO-INJECT] Tick - Habilitado: {autoInjectEnabled}, Juego: {gameRunning}, Completado: {_autoInjectionCompleted}, GameWasRunning: {_gameWasRunning}");
+
+                if (!autoInjectEnabled)
+                {
+                    System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] Deshabilitado - saliendo del timer");
+                    return;
+                }
+
+                if (!gameRunning)
+                {
+                    System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] Juego no ejecutándose - saliendo del timer");
+                    return;
+                }
+
+                // Verificar si hay DLLs habilitadas
+                var enabledDlls = DllEntries.Where(d => d.Enabled).ToList();
+                if (!enabledDlls.Any())
+                {
+                    System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] No hay DLLs habilitadas - saliendo del timer");
+                    return;
+                }
+
+                // Verificar si hay DLLs habilitadas no inyectadas
+                var notInjected = enabledDlls.Where(d =>
+                    d.Status == LocalizationManager.GetString("NotInjected") ||
+                    d.Status.StartsWith("Error:")).ToList();
+
+                System.Diagnostics.Debug.WriteLine($"[AUTO-INJECT] DLLs habilitadas: {enabledDlls.Count}, No inyectadas: {notInjected.Count}");
+
+                // Si hay DLLs no inyectadas, intentar inyectar independientemente del estado de completado
+                if (notInjected.Any())
+                {
+                    System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] Iniciando inyección automática...");
+                    StatusText.Text = LocalizationManager.GetString("AutoInjecting");
+
+                    // Esperar a que el juego cargue completamente
+                    await Task.Delay(2000);
+
+                    // Solo inyectar si el juego sigue ejecutándose después del delay
+                    if (InjectionManager.IsGameRunning())
+                    {
+                        await InjectDllsAsync();
+
+                        // Verificar resultados después de la inyección
+                        var stillNotInjected = enabledDlls.Where(d =>
+                            d.Status == LocalizationManager.GetString("NotInjected") ||
+                            d.Status.StartsWith("Error:")).ToList();
+
+                        if (!stillNotInjected.Any())
+                        {
+                            _autoInjectionCompleted = true;
+                            System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] ✅ Todas las DLLs inyectadas exitosamente");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[AUTO-INJECT] ⚠️ {stillNotInjected.Count} DLLs aún no inyectadas, reintentará en próximo ciclo");
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] Juego cerrado durante el delay - cancelando inyección");
+                    }
+                }
+                else
+                {
+                    if (!_autoInjectionCompleted)
+                    {
+                        _autoInjectionCompleted = true;
+                        System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] ✅ Todas las DLLs ya están inyectadas - marcando como completado");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AUTO-INJECT] ❌ Error: {ex.Message}");
             }
         }
 
@@ -222,14 +376,133 @@ namespace GTAVInjector
                 if (GameTypeTitle != null) GameTypeTitle.Text = LocalizationManager.GetString("GameType");
                 if (LauncherTitle != null) LauncherTitle.Text = LocalizationManager.GetString("Launcher");
                 if (RequirementsTitle != null) RequirementsTitle.Text = LocalizationManager.GetString("Requirements");
+                if (DevsTitle != null) DevsTitle.Text = LocalizationManager.GetString("Devs");
                 if (VersionStatusTitle != null) VersionStatusTitle.Text = LocalizationManager.GetString("VersionStatus");
                 if (UpdateButton != null) UpdateButton.Content = LocalizationManager.GetString("UpdateAvailable");
+                if (ChangelogButton != null) ChangelogButton.Content = LocalizationManager.GetString("ViewChangelog");
+
+
+                // Actualizar textos de requisitos
+                if (VcRequirementText != null) VcRequirementText.Text = LocalizationManager.GetString("VcRequirement");
+                if (GtaRequirementText != null) GtaRequirementText.Text = LocalizationManager.GetString("GtaRequirement");
+                if (AdminRequirementText != null) AdminRequirementText.Text = LocalizationManager.GetString("AdminRequirement");
+
+                // Actualizar texto "Idioma"
+                if (LanguageLabel != null) LanguageLabel.Text = LocalizationManager.GetString("Language");
+
+                // Actualizar botones "Remove" en la lista de DLLs
+                UpdateRemoveButtonsText();
+
+                // Actualizar StatusText según idioma
+                var currentLang = LocalizationManager.CurrentLanguage;
+                if (currentLang.ToLower() == "es")
+                {
+                    if (StatusText != null && (StatusText.Text == "Ready" || StatusText.Text == "Listo"))
+                        StatusText.Text = "Listo";
+                }
+                else
+                {
+                    if (StatusText != null && (StatusText.Text == "Listo" || StatusText.Text == "Ready"))
+                        StatusText.Text = "Ready";
+                }
             }
             catch (Exception ex)
             {
                 // Registrar el error para depuración
                 System.Diagnostics.Debug.WriteLine($"Error en UpdateUI: {ex.Message}");
             }
+        }
+
+        private void UpdateRemoveButtonsText()
+        {
+            try
+            {
+                // Obtener idioma directamente del ComboBox seleccionado
+                string currentLang = "en";
+                if (LanguageSelector?.SelectedItem is System.Windows.Controls.ComboBoxItem selectedItem)
+                {
+                    currentLang = selectedItem.Tag?.ToString() ?? "en";
+                }
+
+                var removeText = currentLang.ToLower() == "es" ? "Quitar" : "Remove";
+
+                System.Diagnostics.Debug.WriteLine($"Idioma detectado: {currentLang}, Texto del botón: {removeText}");
+
+                // Forzar regeneración completa del ListView
+                if (DllListView != null && DllListView.ItemsSource != null)
+                {
+                    var items = DllListView.ItemsSource;
+                    DllListView.ItemsSource = null;
+
+                    // Actualizar el texto por defecto en el XAML
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        DllListView.ItemsSource = items;
+
+                        // Esperar a que se regeneren los items y luego actualizar
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            UpdateVisualRemoveButtons(removeText);
+                        }), System.Windows.Threading.DispatcherPriority.Loaded);
+                    }), System.Windows.Threading.DispatcherPriority.Loaded);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en UpdateRemoveButtonsText: {ex.Message}");
+            }
+        }
+
+        private void UpdateVisualRemoveButtons(string text)
+        {
+            try
+            {
+                if (DllListView == null) return;
+
+                for (int i = 0; i < DllListView.Items.Count; i++)
+                {
+                    var container = DllListView.ItemContainerGenerator.ContainerFromIndex(i) as System.Windows.Controls.ListViewItem;
+                    if (container != null)
+                    {
+                        var textBlock = FindVisualChild<System.Windows.Controls.TextBlock>(container, "RemoveButtonText");
+                        if (textBlock != null)
+                        {
+                            textBlock.Text = text;
+                            System.Diagnostics.Debug.WriteLine($"Botón {i} actualizado a: {text}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en UpdateVisualRemoveButtons: {ex.Message}");
+            }
+        }
+
+        private T? FindVisualChild<T>(System.Windows.DependencyObject parent, string name) where T : System.Windows.DependencyObject
+        {
+            try
+            {
+                for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+                {
+                    var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+
+                    if (child is T typedChild && (child as System.Windows.FrameworkElement)?.Name == name)
+                    {
+                        return typedChild;
+                    }
+
+                    var result = FindVisualChild<T>(child, name);
+                    if (result != null)
+                        return result;
+                }
+            }
+            catch
+            {
+                // Ignorar errores de búsqueda visual
+            }
+
+            return null;
         }
 
         private void AddDll_Click(object sender, RoutedEventArgs e)
@@ -240,7 +513,7 @@ namespace GTAVInjector
                 Multiselect = true,
                 Title = LocalizationManager.GetString("SelectDlls")
             };
-            
+
             if (dialog.ShowDialog() == true)
             {
                 foreach (var file in dialog.FileNames)
@@ -256,9 +529,10 @@ namespace GTAVInjector
                         });
                     }
                 }
-                
+
                 SettingsManager.Settings.DllEntries = DllEntries.ToList();
-                SettingsManager.SaveSettings();
+                if (!_isLoadingSettings) // Solo guardar si no estamos cargando
+                    SettingsManager.SaveSettings();
             }
         }
 
@@ -268,7 +542,8 @@ namespace GTAVInjector
             {
                 DllEntries.Remove(dll);
                 SettingsManager.Settings.DllEntries = DllEntries.ToList();
-                SettingsManager.SaveSettings();
+                if (!_isLoadingSettings) // Solo guardar si no estamos cargando
+                    SettingsManager.SaveSettings();
             }
         }
 
@@ -298,26 +573,26 @@ namespace GTAVInjector
             try
             {
                 var enabledDlls = DllEntries.Where(d => d.Enabled).ToList();
-                
+
                 if (!enabledDlls.Any())
                 {
-                    MessageBox.Show(LocalizationManager.GetString("NoDllsEnabled"), 
+                    MessageBox.Show(LocalizationManager.GetString("NoDllsEnabled"),
                         "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-                
+
                 StatusText.Text = LocalizationManager.GetString("Injecting");
-                
+
                 int injected = 0;
                 foreach (var dll in enabledDlls)
                 {
                     var result = await Task.Run(() => InjectionManager.InjectDll(dll.Path));
-                    
+
                     switch (result)
                     {
                         case InjectionResult.INJECT_OK:
                             MostrarEstado("Estado: TSV2 Cargado exitosamente.", "Inyectado", System.Windows.Media.Brushes.LimeGreen);
-                            dll.Status = "Inyectado exitosamente";
+                            dll.Status = "Inyectado";
                             injected++;
                             break;
                         case InjectionResult.ERROR_OPEN_PROCESS:
@@ -346,14 +621,8 @@ namespace GTAVInjector
                             break;
                     }
                 }
-                
+
                 StatusText.Text = $"Inyección completada: ({injected}/{enabledDlls.Count})";
-                
-                if (injected == enabledDlls.Count)
-                {
-                    MessageBox.Show($"Inyección exitosa: ({injected}/{enabledDlls.Count})", 
-                        "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
             }
             catch (Exception ex)
             {
@@ -366,7 +635,7 @@ namespace GTAVInjector
         {
             StatusText.Text = mensaje;
             StatusText.Foreground = color;
-            
+
             // También actualizar el estado del juego si es necesario
             GameStatusText.Text = estado;
             GameStatusText.Foreground = color;
@@ -378,6 +647,17 @@ namespace GTAVInjector
             {
                 InjectionManager.KillGame();
                 StatusText.Text = LocalizationManager.GetString("GameKilled");
+
+                // Después de un pequeño delay, resetear el texto de estado
+                Task.Delay(2000).ContinueWith(_ =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        var currentLang = LocalizationManager.CurrentLanguage;
+                        StatusText.Text = currentLang.ToLower() == "es" ? "Listo" : "Ready";
+                        StatusText.Foreground = System.Windows.Media.Brushes.White;
+                    });
+                });
             }
             catch (Exception ex)
             {
@@ -387,67 +667,123 @@ namespace GTAVInjector
 
         private void GameType_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isLoadingSettings) return; // No guardar durante la carga inicial
+
             if (LegacyRadio.IsChecked == true)
                 SettingsManager.Settings.GameType = GameType.Legacy;
             else
                 SettingsManager.Settings.GameType = GameType.Enhanced;
-            
+
             SettingsManager.SaveSettings();
         }
 
         private void Launcher_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isLoadingSettings)
+            {
+                System.Diagnostics.Debug.WriteLine("[EVENT DEBUG] Launcher_Changed bloqueado por _isLoadingSettings");
+                return; // No guardar durante la carga inicial
+            }
+            System.Diagnostics.Debug.WriteLine("[EVENT DEBUG] Launcher_Changed ejecutándose - bandera desactivada");
+
             if (RockstarRadio.IsChecked == true)
                 SettingsManager.Settings.LauncherType = LauncherType.Rockstar;
             else if (EpicRadio.IsChecked == true)
                 SettingsManager.Settings.LauncherType = LauncherType.EpicGames;
             else if (SteamRadio.IsChecked == true)
                 SettingsManager.Settings.LauncherType = LauncherType.Steam;
-            
+
             SettingsManager.SaveSettings();
         }
 
         private void AutoInject_Changed(object sender, RoutedEventArgs e)
         {
-            SettingsManager.Settings.AutoInject = AutoInjectCheckbox.IsChecked == true;
+            if (_isLoadingSettings) return; // No guardar durante la carga inicial
+
+            bool isEnabled = AutoInjectCheckbox.IsChecked == true;
+            SettingsManager.Settings.AutoInject = isEnabled;
             SettingsManager.SaveSettings();
-            
-            if (SettingsManager.Settings.AutoInject)
+
+            if (isEnabled)
+            {
+                // Resetear estado cuando se activa manualmente
+                _autoInjectionCompleted = false;
+                _gameWasRunning = false; // Resetear para forzar nueva detección
                 _autoInjectTimer?.Start();
+                System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] ✅ Activado manualmente - timer iniciado y estado reseteado");
+            }
             else
+            {
                 _autoInjectTimer?.Stop();
+                _autoInjectionCompleted = false; // Resetear para próxima activación
+                System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] ❌ Desactivado manualmente - timer detenido");
+            }
         }
 
         private void LanguageSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
+            if (_isLoadingSettings) return; // No guardar durante la carga inicial
+
             if (LanguageSelector.SelectedItem is System.Windows.Controls.ComboBoxItem item)
             {
                 var lang = item.Tag?.ToString() ?? "en";
                 LocalizationManager.SetLanguage(lang);
                 SettingsManager.Settings.Language = lang;
                 SettingsManager.SaveSettings();
+
+                // Forzar actualización completa
                 UpdateUI();
+
+                // Forzar actualización específica de botones Remove después de un pequeño delay
+                Dispatcher.BeginInvoke(new Action(() => {
+                    UpdateRemoveButtonsText();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+                // Actualizar texto de StatusText según idioma (verificar que no sea null)
+                if (StatusText != null)
+                {
+                    if (lang.ToLower() == "es")
+                    {
+                        if (StatusText.Text == "Ready" || StatusText.Text == "Listo")
+                            StatusText.Text = "Listo";
+                    }
+                    else
+                    {
+                        if (StatusText.Text == "Listo" || StatusText.Text == "Ready")
+                            StatusText.Text = "Ready";
+                    }
+                }
+            }
+        }
+
+        private void ComboBox_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // Abrir el dropdown del ComboBox cuando se hace clic en cualquier parte
+            if (LanguageSelector != null && e.LeftButton == MouseButtonState.Pressed)
+            {
+                LanguageSelector.IsDropDownOpen = !LanguageSelector.IsDropDownOpen;
+                e.Handled = true; // Evitar que el evento se propague
             }
         }
 
         private void Update_Click(object sender, RoutedEventArgs e)
         {
+            VersionChecker.OpenDiscordUpdate();
+        }
+
+        private void Changelog_Click(object sender, RoutedEventArgs e)
+        {
             try
             {
-                var result = MessageBox.Show(
-                    "Tu versión está desactualizada. ¿Quieres ir al Discord de TessioScript para obtener la actualización?",
-                    "Actualización Disponible",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                
-                if (result == MessageBoxResult.Yes)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    VersionChecker.OpenDiscordUpdate();
-                }
+                    FileName = "https://github.com/Tessio/TessioScript-Launcher/releases",
+                    UseShellExecute = true
+                });
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al abrir Discord: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error al abrir changelog: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -470,7 +806,8 @@ namespace GTAVInjector
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = "https://discord.gg/NH6pArJB",
+
+                    FileName = TESSIO_DISCORD_URL,
                     UseShellExecute = true
                 });
             }
@@ -528,9 +865,42 @@ namespace GTAVInjector
             }
         }
 
+
         private void Close_Click(object sender, RoutedEventArgs e)
         {
             Close();
+        }
+
+        private void StartParallaxAnimation()
+        {
+            try
+            {
+                // Buscar y comenzar la nueva animación de fondo GTA V
+                var storyboard = (System.Windows.Media.Animation.Storyboard)FindResource("BackgroundAnimation");
+                if (storyboard != null)
+                {
+                    // Forzar inicio de la animación en este window
+                    storyboard.Begin(this, true);
+                    System.Diagnostics.Debug.WriteLine("Animación de fondo GTA V iniciada correctamente");
+
+                    // Verificar que los elementos estén visibles
+                    if (BackgroundImage != null && ParallaxLayer1 != null && ParallaxLayer2 != null)
+                    {
+                        BackgroundImage.Visibility = Visibility.Visible;
+                        ParallaxLayer1.Visibility = Visibility.Visible;
+                        ParallaxLayer2.Visibility = Visibility.Visible;
+                        System.Diagnostics.Debug.WriteLine("Elementos de fondo configurados como visibles");
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("No se pudo encontrar la animación BackgroundAnimation");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error al iniciar animación de fondo: {ex.Message}");
+            }
         }
 
         protected override void OnClosed(EventArgs e)
