@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace GTAVInjector
@@ -11,15 +12,19 @@ namespace GTAVInjector
             // Cargar configuración
             Core.SettingsManager.LoadSettings();
             
+            // Verificar que la configuración se haya cargado correctamente
+            if (Core.SettingsManager.Settings == null)
+            {
+                System.Diagnostics.Debug.WriteLine("ERROR: Settings es null después de LoadSettings()");
+                return;
+            }
+            
             // Cargar idioma guardado
             Core.LocalizationManager.SetLanguage(Core.SettingsManager.Settings.Language);
+            
+          
         }
 
-        protected override void OnExit(ExitEventArgs e)
-        {
-            // Guardar configuración al salir
-            Core.SettingsManager.SaveSettings();
-            base.OnExit(e);
-        }
+       
     }
 }
