@@ -196,58 +196,64 @@ namespace GTAVInjector
             if (_language == "es")
             {
                 Title = "Verificación de Requisitos del Sistema";
-                TitleText.Text = "Requisitos del Sistema";
-                SubtitleText.Text = "Verificando configuración...";
-                StatusSummaryText.Text = _result.GetDetailedSummary(_language);
-                StatusCountText.Text = _result.GetSummary();
-                DownloadButton.Content = "📥 Descargar VC++ Redist";
-                ContinueButton.Content = "✔️ Continuar";
+                if (TitleText != null) TitleText.Text = "Requisitos del Sistema";
+                if (SubtitleText != null) SubtitleText.Text = "Verificando configuración...";
+                if (StatusSummaryText != null) StatusSummaryText.Text = _result.GetDetailedSummary(_language);
+                if (StatusCountText != null) StatusCountText.Text = _result.GetSummary();
+                if (DownloadButton != null) DownloadButton.Content = "📥 Descargar VC++ Redist";
+                if (ContinueButton != null) ContinueButton.Content = "✔️ Continuar";
             }
             else
             {
                 Title = "System Requirements Check";
-                TitleText.Text = "System Requirements";
-                SubtitleText.Text = "Checking configuration...";
-                StatusSummaryText.Text = _result.GetDetailedSummary(_language);
-                StatusCountText.Text = _result.GetSummary();
-                DownloadButton.Content = "📥 Download VC++ Redist";
-                ContinueButton.Content = "✔️ Continue";
+                if (TitleText != null) TitleText.Text = "System Requirements";
+                if (SubtitleText != null) SubtitleText.Text = "Checking configuration...";
+                if (StatusSummaryText != null) StatusSummaryText.Text = _result.GetDetailedSummary(_language);
+                if (StatusCountText != null) StatusCountText.Text = _result.GetSummary();
+                if (DownloadButton != null) DownloadButton.Content = "📥 Download VC++ Redist";
+                if (ContinueButton != null) ContinueButton.Content = "✔️ Continue";
             }
 
             // Actualizar color del resumen
-            if (_result.AllRequirementsMet)
-                StatusSummaryText.Foreground = Brushes.LimeGreen;
-            else if (_result.HasCriticalRequirements)
-                StatusSummaryText.Foreground = Brushes.Orange;
-            else
-                StatusSummaryText.Foreground = Brushes.Red;
+            if (StatusSummaryText != null)
+            {
+                if (_result.AllRequirementsMet)
+                    StatusSummaryText.Foreground = Brushes.LimeGreen;
+                else if (_result.HasCriticalRequirements)
+                    StatusSummaryText.Foreground = Brushes.Orange;
+                else
+                    StatusSummaryText.Foreground = Brushes.Red;
+            }
 
             // 🔥 Solo ocultar botón de continuar si falta ADMINISTRADOR
             if (!_result.IsAdministrator)
             {
-                ContinueButton.Visibility = Visibility.Collapsed;
+                if (ContinueButton != null) ContinueButton.Visibility = Visibility.Collapsed;
 
-                if (_language == "es")
+                if (DownloadButton != null)
                 {
-                    DownloadButton.Content = "❌ Cerrar Launcher";
-                }
-                else
-                {
-                    DownloadButton.Content = "❌ Close Launcher";
+                    if (_language == "es")
+                    {
+                        DownloadButton.Content = "❌ Cerrar Launcher";
+                    }
+                    else
+                    {
+                        DownloadButton.Content = "❌ Close Launcher";
+                    }
                 }
             }
             else
             {
-                ContinueButton.Visibility = Visibility.Visible;
+                if (ContinueButton != null) ContinueButton.Visibility = Visibility.Visible;
 
                 // Ocultar botón de descarga si VC++ ya está instalado
                 if (_result.HasVCRedist2015_2022_x86 && _result.HasVCRedist2015_2022_x64)
                 {
-                    DownloadButton.Visibility = Visibility.Collapsed;
+                    if (DownloadButton != null) DownloadButton.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
-                    DownloadButton.Visibility = Visibility.Visible;
+                    if (DownloadButton != null) DownloadButton.Visibility = Visibility.Visible;
                 }
             }
         }
