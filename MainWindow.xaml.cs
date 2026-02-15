@@ -31,19 +31,13 @@ namespace GTAVInjector
         private bool _autoInjectionCompleted = false;
         private bool _isLoadingSettings = false;
 
-        // Variables para delay configurable
         private int _launchDelay = 5;
         private bool _isUpdatingDelayControls = false;
-
         private DateTime _gameStartTime = DateTime.MinValue;
 
         private readonly DispatcherTimer versionCheckTimer = new DispatcherTimer();
         private string currentLocalVersion = "1.1.0";
-        
-        // Variable para rastrear actualización disponible
         private bool _updateAvailable = false;
-        
-        // 🆕 VARIABLE PARA VALIDACIÓN (usando alias)
         private GameValidationResult? _currentValidation = null;
 
         public MainWindow()
@@ -91,9 +85,9 @@ namespace GTAVInjector
             };
         }
 
-        private async void VersionCheckTimer_Tick(object sender, EventArgs e)
+        private void VersionCheckTimer_Tick(object? sender, EventArgs e)
         {
-            await CheckVersionAsync();
+            _ = CheckVersionAsync();
         }
 
         private async Task CheckVersionAsync()
@@ -114,7 +108,7 @@ namespace GTAVInjector
                     if (remoteVersion != currentLocalVersion)
                     {
                         _updateAvailable = true;
-                        
+
                         Dispatcher.Invoke(() =>
                         {
                             VersionStatusText.Text = $"NUEVA VERSIÓN DISPONIBLE: {currentLocalVersion} > {remoteVersion}";
@@ -123,7 +117,7 @@ namespace GTAVInjector
                             UpdateButton.Content = "Actualizar Ahora";
                             UpdateButton.IsEnabled = true;
                             ChangelogButton.Visibility = Visibility.Collapsed;
-                            
+
                             LaunchButton.IsEnabled = false;
                             InjectButton.IsEnabled = false;
                             KillButton.IsEnabled = false;
@@ -132,15 +126,14 @@ namespace GTAVInjector
                     else
                     {
                         _updateAvailable = false;
-                        
+
                         Dispatcher.Invoke(() =>
                         {
                             VersionStatusText.Text = $"ULTIMA VERSIÓN: {currentLocalVersion}";
                             VersionStatusText.Foreground = Brushes.LightGreen;
                             UpdateButton.Visibility = Visibility.Collapsed;
                             ChangelogButton.Visibility = Visibility.Visible;
-                            
-                            // Solo habilitar si no hay BattlEye activo
+
                             if (_currentValidation == null || _currentValidation.CanInject)
                             {
                                 InjectButton.IsEnabled = true;
@@ -224,7 +217,6 @@ namespace GTAVInjector
             _autoInjectTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _autoInjectTimer.Tick += AutoInjectTimer_Tick;
 
-            // 🆕 TIMER DE VALIDACIÓN
             _validationTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _validationTimer.Tick += (s, e) => ValidateGameConfiguration();
             _validationTimer.Start();
@@ -234,48 +226,42 @@ namespace GTAVInjector
                 _autoInjectTimer.Start();
                 System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] Timer iniciado");
             }
-            
-            // Validación inicial
+
             ValidateGameConfiguration();
         }
 
-        // 🆕 MÉTODO DE VALIDACIÓN
         private void ValidateGameConfiguration()
         {
             try
             {
                 _currentValidation = GameValidator.ValidateGameState();
-                
-                // Solo controlar el botón AddDll aquí
-                // El InjectButton se controla en UpdateGameStatus() para evitar parpadeo
+
                 bool canAddDll = _currentValidation.CanInject && !_updateAvailable;
-                
+
                 if (AddDllButton != null)
                     AddDllButton.IsEnabled = canAddDll;
-                
-                // Ajustar delay automáticamente si FSL instalado
+
                 if (_currentValidation.IsFSLInstalled && !_isLoadingSettings)
                 {
                     int recommendedDelay = _currentValidation.RecommendedDelay;
-                    
+
                     if (_launchDelay < recommendedDelay)
                     {
                         System.Diagnostics.Debug.WriteLine($"[VALIDATOR] FSL detectado - Ajustando delay de {_launchDelay}s a {recommendedDelay}s");
-                        
+
                         _launchDelay = recommendedDelay;
-                        
+
                         if (LaunchDelaySlider != null)
                             LaunchDelaySlider.Value = recommendedDelay;
-                        
+
                         if (LaunchDelayTextBox != null)
                             LaunchDelayTextBox.Text = recommendedDelay.ToString();
-                        
+
                         SettingsManager.Settings.LaunchDelay = _launchDelay;
                         SettingsManager.SaveSettings();
                     }
                 }
-                
-                // Actualizar indicadores visuales
+
                 UpdateValidationStatus();
             }
             catch (Exception ex)
@@ -284,27 +270,26 @@ namespace GTAVInjector
             }
         }
 
-        // 🆕 ACTUALIZAR ESTADO VISUAL
         private void UpdateValidationStatus()
         {
             if (_currentValidation == null || StatusText == null)
                 return;
-            
+
             if (_currentValidation.IsBattlEyeActive)
             {
                 StatusText.Text = LocalizationManager.GetString("BattlEyeDetected");
                 StatusText.Foreground = Brushes.Red;
-                
+
                 System.Diagnostics.Debug.WriteLine("[VALIDATOR] ⚠️ BattlEye activo - Inyección bloqueada");
             }
             else if (_currentValidation.IsFSLInstalled)
             {
                 var lang = LocalizationManager.CurrentLanguage.ToLower();
-                string fslMessage = lang == "es" 
+                string fslMessage = lang == "es"
                     ? $"FSL detectado - Delay: {_launchDelay}s"
                     : $"FSL detected - Delay: {_launchDelay}s";
-                
-                if (!StatusText.Text.Contains("Inyectando") && 
+
+                if (!StatusText.Text.Contains("Inyectando") &&
                     !StatusText.Text.Contains("Injecting") &&
                     !StatusText.Text.Contains("Esperando") &&
                     !_updateAvailable)
@@ -312,7 +297,7 @@ namespace GTAVInjector
                     StatusText.Text = fslMessage;
                     StatusText.Foreground = Brushes.Orange;
                 }
-                
+
                 System.Diagnostics.Debug.WriteLine($"[VALIDATOR] ℹ️ FSL detectado - Delay: {_launchDelay}s");
             }
         }
@@ -325,10 +310,9 @@ namespace GTAVInjector
             {
                 GameStatusText.Text = LocalizationManager.GetString("GameRunning");
                 GameStatusText.Foreground = Brushes.LimeGreen;
-                
+
                 LaunchButton.IsEnabled = false;
-                
-                // Solo habilitar InjectButton si juego corre, no hay actualización y no hay BattlEye
+
                 if (!_updateAvailable && (_currentValidation == null || _currentValidation.CanInject))
                 {
                     InjectButton.IsEnabled = true;
@@ -337,7 +321,7 @@ namespace GTAVInjector
                 else
                 {
                     InjectButton.IsEnabled = false;
-                    KillButton.IsEnabled = true; // Siempre se puede cerrar el juego
+                    KillButton.IsEnabled = true;
                 }
 
                 if (!_gameWasRunning)
@@ -352,11 +336,10 @@ namespace GTAVInjector
             {
                 GameStatusText.Text = LocalizationManager.GetString("GameNotRunning");
                 GameStatusText.Foreground = Brushes.Red;
-                
-                // Cuando juego NO corre: deshabilitar InjectButton, habilitar LaunchButton si no hay problemas
+
                 InjectButton.IsEnabled = false;
                 KillButton.IsEnabled = false;
-                
+
                 if (!_updateAvailable && (_currentValidation == null || _currentValidation.CanInject))
                 {
                     LaunchButton.IsEnabled = true;
@@ -404,11 +387,25 @@ namespace GTAVInjector
                 if (!gameRunning)
                     return;
 
-                // Verificar BattlEye
-                if (_currentValidation != null && _currentValidation.IsBattlEyeActive)
+                var liveValidation = GameValidator.ValidateGameState();
+                if (liveValidation.IsBattlEyeActive)
                 {
                     System.Diagnostics.Debug.WriteLine("[AUTO-INJECT] ⚠️ BattlEye activo - Auto-inyección cancelada");
+
+                    StatusText.Text = LocalizationManager.GetString("BattlEyeDetected");
+                    StatusText.Foreground = Brushes.Red;
+
                     _autoInjectionCompleted = true;
+
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show(
+                            LocalizationManager.GetString("BattlEyeWarning"),
+                            LocalizationManager.GetString("InjectionBlocked"),
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    });
+
                     return;
                 }
 
@@ -565,7 +562,6 @@ namespace GTAVInjector
 
         private void AddDll_Click(object sender, RoutedEventArgs e)
         {
-            // Verificar BattlEye antes de permitir agregar DLL
             if (_currentValidation != null && _currentValidation.IsBattlEyeActive)
             {
                 MessageBox.Show(
@@ -615,23 +611,13 @@ namespace GTAVInjector
             }
         }
 
-        private void DllCheckbox_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_isLoadingSettings) return;
-            
-            SettingsManager.Settings.DllEntries = DllEntries.ToList();
-            SettingsManager.SaveSettings();
-            
-            System.Diagnostics.Debug.WriteLine("[CHECKBOX] Estado de DLL guardado");
-        }
-
         private async void LaunchGame_Click(object sender, RoutedEventArgs e)
         {
             if (_updateAvailable)
             {
                 MessageBox.Show(
-                    LocalizationManager.CurrentLanguage == "es" 
-                        ? "Por favor actualiza el launcher antes de continuar." 
+                    LocalizationManager.CurrentLanguage == "es"
+                        ? "Por favor actualiza el launcher antes de continuar."
                         : "Please update the launcher before continuing.",
                     "Update Required",
                     MessageBoxButton.OK,
@@ -658,23 +644,25 @@ namespace GTAVInjector
             if (_updateAvailable)
             {
                 MessageBox.Show(
-                    LocalizationManager.CurrentLanguage == "es" 
-                        ? "Por favor actualiza el launcher antes de continuar." 
+                    LocalizationManager.CurrentLanguage == "es"
+                        ? "Por favor actualiza el launcher antes de continuar."
                         : "Please update the launcher before continuing.",
                     "Update Required",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
             }
-            
-            // Verificar BattlEye
-            if (_currentValidation != null && _currentValidation.IsBattlEyeActive)
+
+            var liveValidation = GameValidator.ValidateGameState();
+            if (liveValidation.IsBattlEyeActive)
             {
                 MessageBox.Show(
                     LocalizationManager.GetString("BattlEyeWarning"),
                     LocalizationManager.GetString("InjectionBlocked"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
+
+                System.Diagnostics.Debug.WriteLine("[INJECT] ❌ Inyección bloqueada - BattlEye detectado");
                 return;
             }
 
@@ -920,19 +908,18 @@ namespace GTAVInjector
             }
         }
 
-        // 🆕 MÉTODO PARA ABRIR APPDATA
         private void OpenAppData_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                
+
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = appDataPath,
                     UseShellExecute = true
                 });
-                
+
                 System.Diagnostics.Debug.WriteLine($"[APPDATA] Carpeta abierta: {appDataPath}");
             }
             catch (Exception ex)

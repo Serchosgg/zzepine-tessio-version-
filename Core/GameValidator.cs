@@ -13,10 +13,10 @@ namespace GTAVInjector.Core
         // Nombres de procesos de anti-cheat de BattlEye
         private static readonly string[] BATTLEYE_PROCESSES = new[]
         {
-            "GTA5_Enhanced_BE.exe",
-            "GTA5_BE.exe",
-            "BEService.exe",
-            "BEService_x64.exe"
+            "GTA5_Enhanced_BE",  // Sin .exe porque Process.GetProcessesByName no lo requiere
+            "GTA5_BE",
+            "BEService",
+            "BEService_x64"
         };
 
         /// <summary>
@@ -26,29 +26,61 @@ namespace GTAVInjector.Core
         {
             try
             {
-                var processes = Process.GetProcesses();
-                
-                foreach (var process in processes)
+                // Método 1: Buscar por nombre específico
+                foreach (var processName in BATTLEYE_PROCESSES)
                 {
                     try
                     {
-                        string processName = process.ProcessName + ".exe";
-                        
-                        if (BATTLEYE_PROCESSES.Any(be => 
+                        var processes = Process.GetProcessesByName(processName);
+                        if (processes.Length > 0)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[VALIDATOR] ⚠️ BattlEye detectado: {processName}.exe ({processes.Length} instancia(s))");
+
+                            foreach (var proc in processes)
+                            {
+                                proc.Dispose();
+                            }
+
+                            return true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[VALIDATOR] Error verificando {processName}: {ex.Message}");
+                    }
+                }
+
+                // Método 2: Verificar todos los procesos (fallback)
+                var allProcesses = Process.GetProcesses();
+                foreach (var process in allProcesses)
+                {
+                    try
+                    {
+                        string processName = process.ProcessName;
+
+                        // Comparar con los procesos de BattlEye
+                        if (BATTLEYE_PROCESSES.Any(be =>
                             processName.Equals(be, StringComparison.OrdinalIgnoreCase)))
                         {
-                            System.Diagnostics.Debug.WriteLine($"[VALIDATOR] ⚠️ BattlEye detectado: {processName}");
+                            System.Diagnostics.Debug.WriteLine($"[VALIDATOR] ⚠️ BattlEye detectado (scan completo): {processName}.exe");
+                            process.Dispose();
                             return true;
                         }
                     }
                     catch { }
+                    finally
+                    {
+                        process?.Dispose();
+                    }
                 }
-                
+
+                System.Diagnostics.Debug.WriteLine("[VALIDATOR] ✅ No se detectó BattlEye");
                 return false;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[VALIDATOR] Error verificando BattlEye: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[VALIDATOR] Error crítico verificando BattlEye: {ex.Message}");
+                // En caso de error, asumir que NO está activo para no bloquear innecesariamente
                 return false;
             }
         }
@@ -62,19 +94,19 @@ namespace GTAVInjector.Core
             try
             {
                 string gamePath = GetGTAVPath();
-                
+
                 if (string.IsNullOrEmpty(gamePath))
                     return false;
 
                 string winmmPath = Path.Combine(gamePath, "WINMM.dll");
                 bool exists = File.Exists(winmmPath);
-                
+
                 if (exists)
                 {
                     System.Diagnostics.Debug.WriteLine($"[VALIDATOR] ℹ️ FSL (WINMM.dll) DETECTADO");
                     System.Diagnostics.Debug.WriteLine($"[VALIDATOR] Ruta: {winmmPath}");
                 }
-                
+
                 return exists;
             }
             catch (Exception ex)
@@ -102,10 +134,23 @@ namespace GTAVInjector.Core
                         {
                             string path = Path.GetDirectoryName(processPath);
                             System.Diagnostics.Debug.WriteLine($"[VALIDATOR] GTA V path (proceso): {path}");
+
+                            foreach (var proc in gtaProcesses)
+                            {
+                                proc.Dispose();
+                            }
+
                             return path;
                         }
                     }
                     catch { }
+                    finally
+                    {
+                        foreach (var proc in gtaProcesses)
+                        {
+                            proc?.Dispose();
+                        }
+                    }
                 }
 
                 // Buscar en ubicaciones comunes
@@ -166,13 +211,21 @@ namespace GTAVInjector.Core
         /// </summary>
         public static ValidationResult ValidateGameState()
         {
-            return new ValidationResult
+            bool isBattlEye = IsBattlEyeActive();
+            bool isFSL = IsFSLInstalled();
+
+            var result = new ValidationResult
             {
-                IsBattlEyeActive = IsBattlEyeActive(),
-                IsFSLInstalled = IsFSLInstalled(),
+                IsBattlEyeActive = isBattlEye,
+                IsFSLInstalled = isFSL,
                 RecommendedDelay = GetRecommendedDelay(),
                 GamePath = GetGTAVPath()
             };
+
+            // Debug log del estado
+            System.Diagnostics.Debug.WriteLine($"[VALIDATOR] Estado - BattlEye: {isBattlEye}, FSL: {isFSL}, Delay: {result.RecommendedDelay}s");
+
+            return result;
         }
     }
 
