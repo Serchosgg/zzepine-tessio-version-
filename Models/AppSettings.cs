@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
-using GTAVInjector.Models;
 
 namespace GTAVInjector.Models
 {
@@ -8,11 +6,9 @@ namespace GTAVInjector.Models
     {
         public GameType GameType { get; set; } = GameType.Enhanced;
         public LauncherType LauncherType { get; set; } = LauncherType.Rockstar;
-        public List<DllEntry> DllEntries { get; set; } = new();
+        public List<DllEntry> DllEntries { get; set; } = new List<DllEntry>();
         public bool AutoInject { get; set; } = false;
         public string Language { get; set; } = "es";
-        
-        // 🆕 NUEVA PROPIEDAD PARA EL DELAY CONFIGURABLE
-        public int LaunchDelay { get; set; } = 5; // Delay por defecto: 5 segundos
+        public int LaunchDelay { get; set; } = 5;
     }
 }

@@ -237,7 +237,7 @@ namespace GTAVInjector.Core
         public bool IsBattlEyeActive { get; set; }
         public bool IsFSLInstalled { get; set; }
         public int RecommendedDelay { get; set; }
-        public string GamePath { get; set; }
+        public string GamePath { get; set; } = string.Empty;
 
         /// <summary>
         /// Indica si es seguro inyectar DLLs

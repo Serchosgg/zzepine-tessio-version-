@@ -45,6 +45,30 @@ namespace GTAVInjector
             _isLoadingSettings = true;
             InitializeComponent();
 
+            // 🔥 VALIDAR REQUISITOS DEL SISTEMA AL INICIO
+            var requirementsResult = SystemRequirementsValidator.ValidateAllRequirements();
+
+            // 🔥 Solo mostrar ventana si faltan requisitos
+            if (!requirementsResult.AllRequirementsMet)
+            {
+                ShowRequirementsDialog(requirementsResult);
+            }
+
+            // 🔥 Solo cerrar si falta ADMINISTRADOR (requisito crítico)
+            if (!requirementsResult.IsAdministrator)
+            {
+                MessageBox.Show(
+                    LocalizationManager.CurrentLanguage == "es"
+                        ? "❌ ERROR CRÍTICO: Esta aplicación requiere permisos de administrador.\n\nPor favor, ejecuta el launcher como Administrador.\n\nEl launcher se cerrará ahora."
+                        : "❌ CRITICAL ERROR: This application requires administrator permissions.\n\nPlease run the launcher as Administrator.\n\nThe launcher will now close.",
+                    "Administrator Required",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+
+                Application.Current.Shutdown();
+                return;
+            }
+
             versionCheckTimer.Interval = TimeSpan.FromMinutes(5);
             versionCheckTimer.Tick += VersionCheckTimer_Tick;
             versionCheckTimer.Start();
@@ -975,6 +999,37 @@ namespace GTAVInjector
             _autoInjectTimer?.Stop();
             _validationTimer?.Stop();
             base.OnClosed(e);
+        }
+
+        /// <summary>
+        /// Muestra diálogo con los requisitos del sistema
+        /// </summary>
+        private void ShowRequirementsDialog(SystemRequirementsResult result)
+        {
+            try
+            {
+                var requirementsWindow = new RequirementsWindow(result, LocalizationManager.CurrentLanguage);
+                requirementsWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                // Fallback a diálogo simple si hay error
+                System.Diagnostics.Debug.WriteLine($"[REQUIREMENTS] Error mostrando ventana: {ex.Message}");
+
+                string language = LocalizationManager.CurrentLanguage.ToLower();
+                string title = language == "es" ? "Requisitos del Sistema" : "System Requirements";
+                string message = language == "es"
+                    ? "Se detectaron los siguientes problemas:\n\n"
+                    : "The following issues were detected:\n\n";
+
+                message += SystemRequirementsValidator.GetRequirementsErrorMessage(result, language);
+
+                message += language == "es"
+                    ? "\n\n⚠️ La aplicación puede no funcionar correctamente sin estos requisitos."
+                    : "\n\n⚠️ The application may not work correctly without these requirements.";
+
+                MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
     }
 }
